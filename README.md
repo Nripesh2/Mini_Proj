@@ -1,1 +1,1 @@
-# Mini_Proj
+# Sales_Mini_Project
