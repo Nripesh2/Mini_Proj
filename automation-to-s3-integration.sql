@@ -1,12 +1,12 @@
 -- AWS CLI Commands
 
--- AWS Access Key ID [None]: AKIAXQT3GSK6UP4YDZTD
--- AWS Secret Access Key [None]: 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
--- Default region name [None]: ap-south-1
--- Default output format [None]: json
+-- AWS Access Key ID [None]: 'AWS ACCESS KEY'
+-- AWS Secret Access Key [None]: 'AWS SECRET ACCESS KEY'
+-- Default region name [None]: 'YOUR REGION'
+-- Default output format [None]: 'YOUR FILE FORMAT'
 
--- cd 'C:\Users\Rakshita\Downloads\Mini Project-Atgeir Solutions'
--- python aws_s3_csv_upload.py
+-- cd 'local_path'
+-- python local-machine-to-s3-automation.py
 
 
 -- SNOWFLAKE WORKSHEET
