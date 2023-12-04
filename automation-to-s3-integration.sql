@@ -2,10 +2,11 @@
 
 -- AWS Access Key ID [None]: 'AWS ACCESS KEY'
 -- AWS Secret Access Key [None]: 'AWS SECRET ACCESS KEY'
--- Default region name [None]: ap-south-1
--- Default output format [None]: json
+-- Default region name [None]: 'YOUR REGION'
+-- Default output format [None]: 'YOUR FILE FORMAT'
 
--- cd 'C:\Users\Rakshita\Downloads\Mini Project-Atgeir Solutions'
+-- cd 'local_path'
+
 -- python local-machine-to-s3-automation.py
 
 
