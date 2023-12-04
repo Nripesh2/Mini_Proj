@@ -6,6 +6,7 @@
 -- Default output format [None]: 'YOUR FILE FORMAT'
 
 -- cd 'local_path'
+
 -- python local-machine-to-s3-automation.py
 
 
