@@ -6,7 +6,7 @@
 -- Default output format [None]: json
 
 -- cd 'C:\Users\Rakshita\Downloads\Mini Project-Atgeir Solutions'
--- python aws_s3_csv_upload.py
+-- python local-machine-to-s3-automation.py
 
 
 -- SNOWFLAKE WORKSHEET
