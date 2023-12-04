@@ -1,7 +1,7 @@
 -- AWS CLI Commands
 
--- AWS Access Key ID [None]: AKIAXQT3GSK6UP4YDZTD
--- AWS Secret Access Key [None]: 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
+-- AWS Access Key ID [None]: 'AWS ACCESS KEY'
+-- AWS Secret Access Key [None]: 'AWS SECRET ACCESS KEY'
 -- Default region name [None]: ap-south-1
 -- Default output format [None]: json
 
