@@ -1,29 +1,22 @@
 import os
-import boto3
 import time
 import threading
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 # AWS credentials and S3 bucket details
-AWS_ACCESS_KEY = 'AKIAXQT3GSK6UP4YDZTD'
-AWS_SECRET_KEY = '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'
-AWS_REGION = 'ap-south-1'
+# AWS_ACCESS_KEY = 'AKIAXQT3GSK6UP4YDZTD'
+# AWS_SECRET_KEY = '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'
+# AWS_REGION = 'ap-south-1'
+
 S3_BUCKET_NAME = 'salescsvupload'
 S3_BUCKET_PATH = 'data/'
 
 # Function to upload a file to S3 bucket
 def upload_to_s3(local_file_path, s3_file_name):
-    # Initialize S3 client
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=AWS_ACCESS_KEY,
-        aws_secret_access_key=AWS_SECRET_KEY,
-        region_name=AWS_REGION
-    )
-    # Uploading file to S3
-    print(f"Uploading {local_file_path} to S3 bucket: {S3_BUCKET_NAME}/{S3_BUCKET_PATH}{s3_file_name}")
-    s3.upload_file(local_file_path, S3_BUCKET_NAME, S3_BUCKET_PATH + s3_file_name)
+    # Uploading file to S3 using AWS CLI credentials
+    s3_bucket_path = f"s3://{S3_BUCKET_NAME}/{S3_BUCKET_PATH}{s3_file_name}"
+    os.system(f"aws s3 cp {local_file_path} {s3_bucket_path}")
     print(f"Upload complete for {local_file_path}")
 
 # Watcher class to monitor file system events
@@ -43,7 +36,7 @@ class Watcher:
         print(f"Watching directory: {self.directory_to_watch}")
         try:
             while self.keep_running:  # Check the flag to keep running
-                if time.time() - self.last_activity_time > 1:  # Change 1 to desired timeout in seconds
+                if time.time() - self.last_activity_time > 5:  # Change 5 to desired timeout in seconds
                     # If no activity detected for a while, stop monitoring and uploading
                     print("\nNo activity detected for a while. Stopping the file monitoring and upload process...")
                     self.observer.stop()
@@ -89,7 +82,7 @@ class Handler(FileSystemEventHandler):
                 self.watcher.update_activity_time()  # Update activity time on file modification
 
 if __name__ == "__main__":
-    path_to_monitor = r'C:\Users\Rakshita\Downloads\Mini Project-Atgeir Solutions\Data'
+    path_to_monitor = r'C:\Users\Rakshita\PycharmProjects\Sales-MiniProject'
 
     w = Watcher(path_to_monitor)
     print("Starting file monitoring and upload process...")
@@ -99,20 +92,19 @@ if __name__ == "__main__":
     monitor_thread.start()
 
     try:
-        while True:
-            # Update the activity time whenever there's an iteration in the main thread
-            w.update_activity_time()
-            time.sleep(1)
-
-            # Check if there's been no activity for a specific duration (e.g., 1 second)
-            if time.time() - w.last_activity_time > 1:
-                w.keep_running = False  # Stop the monitoring process
-                break  # Exit the loop
+        while monitor_thread.is_alive():  # Check if the monitor thread is alive
+            monitor_thread.join(timeout=5)  # Join the monitor thread with timeout
     except KeyboardInterrupt:
         w.keep_running = False  # Stop the monitoring process
-        monitor_thread.join()
         print("File monitoring stopped due to keyboard interruption.")
 
     # Wait for the monitoring thread to finish
     monitor_thread.join()
-    print("File monitoring stopped.")
+    # print("File monitoring stopped.")
+
+
+
+# This structure allows your computer to watch the folder for changes (Watcher), 
+# keep a dedicated helper thread (monitor thread) for this task, 
+# and have a set of instructions (Handler) on what to do when specific events occur. 
+# This helps your program manage file system events without interrupting other operations.
