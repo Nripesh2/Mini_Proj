@@ -1,3 +1,6 @@
+-- ALTER SESSION SET TIMEZONE = 'Asia/Kolkata';
+-- SELECT CURRENT_TIMESTAMP;
+
 -- Create the Target Table table to store sales-related information from SalesFact Table and EDH Columns
 CREATE OR REPLACE TABLE TargetTable (
     SeqNo INT IDENTITY(1,1) PRIMARY KEY
@@ -58,8 +61,8 @@ CREATE OR REPLACE TABLE TargetTable (
 	-- Enterprise Data Hub (EDH) columns
     , EDH_ROW_HASH_NBR INT
     , EDH_DML_IND VARCHAR()
-    , EDH_CREAT_TS DATETIME DEFAULT GETDATE()
-    , EDH_UPDT_TS TIMESTAMP_NTZ -- DEFAULT GETDATE()
+    , EDH_CREAT_TS DATETIME DEFAULT current_timestamp()
+    , EDH_UPDT_TS DATETIME DEFAULT TO_TIMESTAMP('9999-01-01 12:00:00', 'YYYY-MM-DD HH24:MI:SS')
     , EDH_IS_C_FLG BOOLEAN
     , EDH_REPLICATION_SEQUENCE_NUMBER VARCHAR() DEFAULT '0'
     , EDH_LINEAGE_ID VARCHAR() DEFAULT '0'
@@ -70,11 +73,11 @@ CREATE OR REPLACE TABLE TargetTable (
 
 
 /*
- * Creates or replaces a stored procedure named EDH_PROCEDURE().
+ * Creates or replaces a stored procedure named TARGET_TABLE_PROCEDURE().
  * This procedure manages data operations, transformations, and updates within the database.
  * It involves data validation, transformation, merging, and error handling processes to ensure data integrity and consistency.
  */
-CREATE OR REPLACE PROCEDURE EDH_PROCEDURE()
+CREATE OR REPLACE PROCEDURE TARGET_TABLE_PROCEDURE()
   RETURNS STRING
   LANGUAGE JAVASCRIPT
   EXECUTE AS CALLER
@@ -114,105 +117,6 @@ try {
         }
         validationResult += '\n'; // Add extra newline for separation
     }
-
-
-
-    // Date Transformation Section - Performs date-related transformations on the data
-    var dateTransformSQL = `
-        SELECT
-            CASE 
-                WHEN DAYOFWEEK(OrderDate) BETWEEN 2 AND 6 THEN 'Weekday' 
-                ELSE 'Weekend' 
-            END AS DayType
-            , CASE 
-                WHEN DAYNAME(OrderDate) = 'Sun' THEN 'Sunday'
-                WHEN DAYNAME(OrderDate) = 'Mon' THEN 'Monday'
-                WHEN DAYNAME(OrderDate) = 'Tue' THEN 'Tuesday'
-                WHEN DAYNAME(OrderDate) = 'Wed' THEN 'Wednesday'
-                WHEN DAYNAME(OrderDate) = 'Thu' THEN 'Thursday'
-                WHEN DAYNAME(OrderDate) = 'Fri' THEN 'Friday'
-                WHEN DAYNAME(OrderDate) = 'Sat' THEN 'Saturday'
-            END AS Day
-            , DAYNAME(OrderDate) AS DayShort
-            , CASE 
-                WHEN QUARTER(OrderDate) = 1 THEN 'Q1'
-                WHEN QUARTER(OrderDate) = 2 THEN 'Q2'
-                WHEN QUARTER(OrderDate) = 3 THEN 'Q3'
-                WHEN QUARTER(OrderDate) = 4 THEN 'Q4'
-            END AS Quarter
-            , CONCAT(YEAR(OrderDate), '-Q'
-                , CASE 
-                    WHEN QUARTER(OrderDate) = 1 THEN '1'
-                    WHEN QUARTER(OrderDate) = 2 THEN '2'
-                    WHEN QUARTER(OrderDate) = 3 THEN '3'
-                    WHEN QUARTER(OrderDate) = 4 THEN '4'
-                END) AS QuarterYear
-            , MONTH(OrderDate) AS Month
-            , CONCAT(LEFT(MONTHNAME(OrderDate), 3), ' ', YEAR(OrderDate)) AS MonthName
-            , CONCAT(YEAR(OrderDate), '-', LPAD(MONTH(OrderDate), 2, '0')) AS MonthYear
-            , CEIL(DAY(OrderDate) / 7) AS Week
-            , CONCAT('Wk-', CEIL(DAY(OrderDate) / 7)) AS WeekName
-            , YEAR(OrderDate) AS Year
-        FROM 
-            SalesFact`;
-	
-	
-	
-	// Shipment Details Section - Processes shipment-related details
-    var stmtDateTransform = snowflake.createStatement({ sqlText: dateTransformSQL });
-    stmtDateTransform.execute();
-
-    // Shipment Details Section
-    var shipmentDetailsSQL = `
-        SELECT
-            DATEDIFF(DAY, OrderDate, ShipDate) AS DeliveryTAT
-            , CASE 
-                WHEN ShipDate < DueDate THEN 'Early'
-                WHEN ShipDate = DueDate THEN 'Normal'
-                ELSE 'Late'
-            END AS ShipmentStatus
-            , CASE 
-                WHEN MakeFlag = 1 THEN 'Manufactured'
-                WHEN MakeFlag = 0 THEN 'Purchased'
-                ELSE 'Unknown'
-            END AS ProductType
-        FROM 
-            SalesFact`;
-
-	// Executes SQL for shipment-related details
-    var stmtShipmentDetails = snowflake.createStatement({ sqlText: shipmentDetailsSQL });
-    stmtShipmentDetails.execute();
-
-
-
-    // Calculated Order Details Section - Computes and summarizes order-related details
-    var calculatedOrderDetailsSQL = `
-        WITH Transformations AS (
-            SELECT
-                o.SalesOrderID AS OrderId
-                , o.OrderQty * (o.UnitPrice - (o.UnitPrice * o.UnitPriceDiscount)) AS OrderValue
-                , o.taxamt / NULLIFZERO(COUNT(o.productid) OVER (PARTITION BY o.SalesOrderID)) AS TaxAmount
-                , o.freight / NULLIFZERO(COUNT(o.productid) OVER (PARTITION BY o.SalesOrderID)) AS FreightAmount
-                , (o.OrderQty * (o.UnitPrice - (o.UnitPrice * o.UnitPriceDiscount))) +
-                    (o.taxamt / NULLIFZERO(COUNT(o.productid) OVER (PARTITION BY o.SalesOrderID))) +
-                    (o.freight / NULLIFZERO(COUNT(o.productid) OVER (PARTITION BY o.SalesOrderID))) AS ExtendedAmount
-            FROM
-                Orders o
-			JOIN SalesFact sf
-				ON o.salesorderid = sf.orderid AND o.ProductId = sf.PRODUCTID
-        ) 
-        
-        SELECT
-            *
-            , SUM(ExtendedAmount) OVER (PARTITION BY OrderId ORDER BY OrderId) AS SubTotal
-        FROM
-            Transformations`;
-
-	// Executes SQL to compute order-related details
-    var stmtCalculatedOrderDetails = snowflake.createStatement({ sqlText: calculatedOrderDetailsSQL });
-    stmtCalculatedOrderDetails.execute();
-
-
 
     //EDH Columns Section
     var EDH_ROW_HASH_NBRSQL = `
@@ -372,7 +276,7 @@ try {
                 , EDH_ROW_HASH_NBR = Source.EDH_ROW_HASH_NBR
                 , EDH_DML_IND = 'U'
                 , EDH_CREAT_TS = Source.EDH_CREAT_TS
-                , EDH_UPDT_TS = current_date()
+                , EDH_UPDT_TS = CURRENT_TIMESTAMP()
                 , EDH_IS_C_FLG = 1
                 , EDH_REPLICATION_SEQUENCE_NUMBER = Source.EDH_REPLICATION_SEQUENCE_NUMBER
                 , EDH_LINEAGE_ID = Source.EDH_LINEAGE_ID
@@ -401,7 +305,7 @@ try {
 				, Source.DayType, Source.Day, Source.DayShort, Source.Quarter, Source.QuarterYear, Source.Month, Source.MonthName, Source.MonthYear, Source.Week, Source.WeekName, Source.Year
 				, Source.DeliveryTAT, Source.ShipmentStatus, Source.ProductType
 				, Source.OrderValue, Source.TaxAmount, Source.FreightAmount, Source.ExtendedAmount, Source.SubTotal
-                , Source.EDH_ROW_HASH_NBR, 'I', Source.EDH_CREAT_TS, EDH_UPDT_TS, 0, Source.EDH_REPLICATION_SEQUENCE_NUMBER, Source.EDH_LINEAGE_ID, Source.EDH_MODIFIED_BY_USER_NAME
+                , Source.EDH_ROW_HASH_NBR, 'I', Source.EDH_CREAT_TS, Source.EDH_UPDT_TS, 0, Source.EDH_REPLICATION_SEQUENCE_NUMBER, Source.EDH_LINEAGE_ID, Source.EDH_MODIFIED_BY_USER_NAME
                 );
     `;
 
@@ -459,7 +363,7 @@ try {
 $$;
 
 -- Executes the stored procedure
-CALL EDH_PROCEDURE();
+CALL TARGET_TABLE_PROCEDURE();
 
 -- Retrieves data from the updated TargetTable
 SELECT * FROM TargetTable;
